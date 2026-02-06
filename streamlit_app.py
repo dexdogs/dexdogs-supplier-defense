@@ -8,11 +8,13 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="dexdogs | Factory Twin", layout="wide")
 
-# --- APPLE-STYLE CSS ---
+# --- IMPROVED CSS FOR READABILITY ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; }
+    .main { background-color: #0e1117; color: white; }
     .stMetric { border: 1px solid #444; padding: 15px; border-radius: 12px; background-color: #161b22; }
+    [data-testid="stMetricValue"] { color: white !important; }
+    [data-testid="stMetricLabel"] { color: #888 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -41,28 +43,32 @@ if sim_start:
     flow_placeholder = st.empty()
     metric_col = st.columns(3)
     chart_col = st.columns(2)
+    pulse_placeholder = chart_col[0].empty()
+    gantt_placeholder = chart_col[1].empty()
+
+    iteration = 0 # Used for unique keys to prevent DuplicateElementId error
 
     while time.time() < t_end:
-        # 1. THE VISUAL FLOW MODEL (Like your reference image)
-        # We use a Scatter plot with lines to mimic the 'Process Modeling' look
+        iteration += 1
+        
+        # 1. THE VISUAL FLOW MODEL (Fixed Visibility)
         node_x = [0, 1, 2, 3]
         node_y = [1, 1, 1, 1]
-        node_text = ["Raw Materials", "Melting (1550°C)", "Fusion Draw", "Annealing"]
+        node_text = ["<b>Raw Materials</b>", "<b>Melting (Furnace)</b>", "<b>Fusion Draw</b>", "<b>Annealing</b>"]
         
-        # Color changes based on efficiency gap
         link_color = "#00d4ff" if efficiency_gap < 15 else "#ff4b4b"
         
         fig_flow = go.Figure()
-        # Add the connections (Links)
-        fig_flow.add_trace(go.Scatter(x=node_x, y=node_y, mode='lines+markers',
-                                    line=dict(color=link_color, width=4),
-                                    marker=dict(size=40, color="#1f2937", line=dict(color=link_color, width=2))))
-        # Add labels
-        for x, y, label in zip(node_x, node_y, node_text):
-            fig_flow.add_annotation(x=x, y=y-0.2, text=label, showarrow=False, font=dict(color="white"))
+        fig_flow.add_trace(go.Scatter(x=node_x, y=node_y, mode='lines+markers+text',
+                                    text=node_text, textposition="top center",
+                                    line=dict(color=link_color, width=6),
+                                    marker=dict(size=45, color="#1f2937", line=dict(color=link_color, width=3)),
+                                    textfont=dict(color="white", size=14)))
         
-        fig_flow.update_layout(template="plotly_dark", height=250, xaxis=dict(visible=False), yaxis=dict(visible=False, range=[0, 2]))
-        flow_placeholder.plotly_chart(fig_flow, use_container_width=True)
+        fig_flow.update_layout(template="plotly_dark", height=300, 
+                              margin=dict(l=50, r=50, t=50, b=50),
+                              xaxis=dict(visible=False), yaxis=dict(visible=False, range=[0.5, 1.5]))
+        flow_placeholder.plotly_chart(fig_flow, use_container_width=True, key=f"flow_{iteration}")
 
         # 2. TELEMETRY & MATH
         theoretical = (furnace_temp * 0.045)
@@ -74,23 +80,24 @@ if sim_start:
         # 3. METRICS UPDATES
         metric_col[0].metric("Theoretic Reaction", f"{theoretical:.2f} kg/t")
         metric_col[1].metric("Actual Emissions", f"{actual:.2f} kg/t", delta=f"{actual-theoretical:.2f} WASTE", delta_color="inverse")
-        metric_col[2].metric("Compliance Status", "PASS" if efficiency_gap < 15 else "AUDIT REQ", 
-                             delta=f"{100-efficiency_gap}% Score")
+        metric_col[2].metric("Compliance Status", "PASS" if efficiency_gap < 15 else "AUDIT REQ", delta=f"{100-efficiency_gap}% Score")
 
-        # 4. CARBON PULSE CHART
-        fig_pulse = px.line(df_history.tail(30), x='Time', y='Load', title="Real-Time Carbon Pulse")
-        fig_pulse.update_layout(template="plotly_dark", height=300)
-        chart_col[0].plotly_chart(fig_pulse, use_container_width=True)
+        # 4. CARBON PULSE CHART (Fixed Unique Key)
+        fig_pulse = px.line(df_history.tail(30), x='Time', y='Load', title="Real-Time Carbon Pulse (Digital Twin)")
+        fig_pulse.update_layout(template="plotly_dark", height=350, margin=dict(t=40, b=20))
+        pulse_placeholder.plotly_chart(fig_pulse, use_container_width=True, key=f"pulse_{iteration}")
 
-        # 5. SEQUENCE PROOF (Gantt)
+        # 5. SEQUENCE PROOF (Fixed Unique Key)
         tasks = [
             dict(Process="Melting", Start=now-timedelta(minutes=2), Finish=now, Batch="Batch A"),
-            dict(Process="Forming", Start=now, Finish=now+timedelta(minutes=2), Batch="Batch A")
+            dict(Process="Forming", Start=now, Finish=now+timedelta(minutes=2), Batch="Batch A"),
+            dict(Process="Annealing", Start=now+timedelta(minutes=2), Finish=now+timedelta(minutes=4), Batch="Batch A")
         ]
         fig_gantt = px.timeline(pd.DataFrame(tasks), x_start="Start", x_end="Finish", y="Process", color="Batch")
-        fig_gantt.update_layout(template="plotly_dark", height=300)
-        chart_col[1].plotly_chart(fig_gantt, use_container_width=True)
+        fig_gantt.update_layout(template="plotly_dark", height=350, margin=dict(t=40, b=20))
+        gantt_placeholder.plotly_chart(fig_gantt, use_container_width=True, key=f"gantt_{iteration}")
 
         time.sleep(2)
 else:
-    st.info("Start the 5-minute production run to see the Visual Flow Model.")
+    st.info("Start the 5-minute production run to visualize the Glass Factory Flow.")
+
