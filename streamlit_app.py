@@ -2,57 +2,68 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="dexdogs | Supplier Defense", layout="wide")
+st.set_page_config(page_title="dexdogs | Digital Twin", layout="wide")
+st.title("🏗️ dexdogs: Glass Factory Digital Twin")
+st.caption("Defending Tier 1 Supplier Contracts with High-Fidelity Data")
 
-# --- HEADER ---
-st.title("🏭 dexdogs: The Supplier Survival Simulator")
-st.markdown("### Moving from *Static Averages* to *Activity-Based* Carbon Defense")
-
-# --- SIDEBAR INPUTS ---
+# --- SIDEBAR: CONTROL THE REALITY ---
 with st.sidebar:
-    st.header("Factory Settings")
-    daily_target = st.slider("Daily Production (Tonnes of Glass)", 5, 100, 20)
-    efficiency = st.slider("Process Optimization (%)", 0, 40, 0)
+    st.header("Factory Controls")
+    furnace_temp = st.slider("Furnace Temp (°C)", 1400, 1700, 1550)
+    leak_rate = st.slider("Fuel Line Inefficiency (%)", 0, 20, 5)
     st.divider()
-    st.info("Goal: Defend your Apple contract with high-fidelity data.")
+    if st.button("🔄 Reset Simulation"):
+        st.rerun()
 
-# --- THE MATH ENGINE ---
-# 1. The "Average" Way (Spend-based/Industry Average)
-avg_intensity = 0.62  # tCO2e per tonne of glass
-guess_total = daily_target * avg_intensity
+# --- 1. THE VISUAL DES MODEL (Gantt Chart) ---
+st.subheader("1. Discrete Event Model: Batch Flow")
+# We simulate 3 typical processes: Melting, Forming, Annealing
+tasks = []
+start_time = datetime(2026, 2, 6, 8, 0)
+for i in range(1, 6): # 5 Batches
+    m_start = start_time + timedelta(minutes=(i-1)*30)
+    tasks.append(dict(Batch=f"Batch {i}", Start=m_start, Finish=m_start + timedelta(minutes=25), Process="1. Melting (1550°C)"))
+    tasks.append(dict(Batch=f"Batch {i}", Start=m_start + timedelta(minutes=26), Finish=m_start + timedelta(minutes=45), Process="2. Fusion Draw (Forming)"))
+    tasks.append(dict(Batch=f"Batch {i}", Start=m_start + timedelta(minutes=46), Finish=m_start + timedelta(minutes=70), Process="3. Annealing (Cooling)"))
 
-# 2. The "dexdogs" Way (Stoichiometry + Activity)
-# Stoichiometry: Soda Ash + Heat = 0.21 tCO2e/tonne (Fixed by Chemistry)
-stoic_floor = daily_target * 0.21 
-# Activity: Energy used by the furnace (Variable by efficiency)
-energy_load = (daily_target * 0.41) * (1 - (efficiency / 100))
-dexdogs_total = stoic_floor + energy_load
+df_tasks = pd.DataFrame(tasks)
+fig_gantt = px.timeline(df_tasks, x_start="Start", x_end="Finish", y="Process", color="Batch", title="Glass Batch Sequencing")
+fig_gantt.update_yaxes(autorange="reversed")
+st.plotly_chart(fig_gantt, use_container_width=True)
 
-# --- VISUAL 1: THE METRIC SHOWDOWN ---
-col1, col2 = st.columns(2)
-with col1:
-    st.metric("Industry Average Reporting", f"{guess_total:.2f} tCO2e", delta="STATIC GUESS", delta_color="off")
-with col2:
-    diff = dexdogs_total - guess_total
-    st.metric("dexdogs Digital Twin", f"{dexdogs_total:.2f} tCO2e", delta=f"{diff:.2f} tCO2e SAVED", delta_color="normal")
+# --- 2. RAW TELEMETRY & WASTE LOG ---
+st.subheader("2. Live Telemetry Data (Activity Feed)")
+# Generating fake 'sensor' data based on your sliders
+telemetry = []
+for i in range(10):
+    noise = np.random.uniform(-1, 1)
+    power = (furnace_temp / 20) + leak_rate + noise
+    waste = "Leak Detected" if power > 80 else "Normal"
+    telemetry.append({"Timestamp": datetime.now() - timedelta(seconds=i*10), "Sensor_ID": "Furnace_01", "KW_Load": f"{power:.2f}", "Status": waste})
 
-# --- VISUAL 2: THE CARBON PULSE ---
-# Generating 24 hours of simulated activity
-hours = np.linspace(0, 24, 48)
-# Create a 'pulse' effect where energy spikes when a batch enters the furnace
-pulse = [dexdogs_total/12 * (1.5 if i%4==0 else 0.7) for i in range(len(hours))]
-df_pulse = pd.DataFrame({'Hour': hours, 'Emissions (kg CO2e)': pulse})
+col_a, col_b = st.columns([2, 3])
+with col_a:
+    st.dataframe(telemetry, use_container_width=True)
+with col_b:
+    # --- 4. EMISSIONS SPIKE VISUAL ---
+    hours = np.linspace(0, 10, 100)
+    # The spike is caused by the 'leak_rate' slider
+    base_load = np.sin(hours) * 5 + 20
+    spike = base_load + (leak_rate * 2) 
+    df_pulse = pd.DataFrame({'Time': hours, 'Carbon_Pulse': spike})
+    st.plotly_chart(px.line(df_pulse, x='Time', y='Carbon_Pulse', title="Real-Time Carbon Spike (Fuel Inefficiency)"), use_container_width=True)
 
-fig = px.area(df_pulse, x='Hour', y='Emissions (kg CO2e)', 
-              title="Real-Time Carbon Pulse: Batch Processing vs. Idle Time",
-              color_discrete_sequence=['#00d4ff'])
-fig.update_layout(template="plotly_dark", plot_bgcolor='rgba(0,0,0,0)')
-st.plotly_chart(fig, use_container_width=True)
+# --- 3. MATH vs. REALITY ---
+st.divider()
+st.subheader("3. The 'Gap': Theoretical vs. Actual")
+theoretical = (furnace_temp * 0.05) # Stoichiometry math
+actual = theoretical + (leak_rate * 1.5) # The reality of waste
 
-# --- THE "AUDIT" DEFENSE ---
-st.subheader("🛡️ Auditor Defense Log")
-st.write(f"""
-- **Stoichiometric Reality**: {stoic_floor:.2f} tonnes of CO2 are chemically locked to your production.
-- **Activity Efficiency**: Your furnace idle-time was reduced by {efficiency}%, saving {guess_total - dexdogs_total:.2f} tonnes vs. the industry average.
-""")
+m1, m2, m3 = st.columns(3)
+m1.metric("Theoretical (Stoichiometry)", f"{theoretical:.2f} kg/t", help="Based on chemical reactions")
+m2.metric("Actual (Sensor Data)", f"{actual:.2f} kg/t", delta=f"{actual-theoretical:.2f} WASTE", delta_color="inverse")
+m3.metric("Apple Compliance Score", f"{100-leak_rate}%", delta="-4%" if leak_rate > 10 else "Optimal")
+
+st.info("💡 **Demo Strategy**: Show how 'Theoretical Math' is a lie. Only dexdogs captures the **Waste Gap** through real-time telemetry.")
