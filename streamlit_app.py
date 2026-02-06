@@ -11,7 +11,7 @@ st.set_page_config(page_title="dexdogs | Digital Twin", layout="wide")
 # --- CUSTOM CSS (Apple-Style Dark Theme) ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; }
+    .main { background-color: #808080; }
     .stMetric { 
         border: 1px solid #444; 
         padding: 15px; 
@@ -116,3 +116,4 @@ else:
 # --- FOOTER ---
 st.divider()
 st.caption("dexdogs © 2026 | Built for the 30-Day Climate Tech Challenge")
+
