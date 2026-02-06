@@ -16,13 +16,13 @@ st.markdown("""
         border: 1px solid #444; 
         padding: 15px; 
         border-radius: 12px; 
-        background-color: #161b22;
+        background-color: #FFFFFF;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏗️ dexdogs: Glass Factory Digital Twin")
-st.caption("Verifying the 'Carbon Pulse' for Apple Supplier Compliance (2026)")
+st.title("Glass Factory Digital Twin // dexdogs")
+st.caption("Waste and Emissions Pulse for Supplier Compliance (2026)")
 
 # --- SOURCES & COMPLIANCE LINKS ---
 with st.expander("📚 Official Compliance Sources (Tier 1 Auditing)"):
@@ -116,4 +116,5 @@ else:
 # --- FOOTER ---
 st.divider()
 st.caption("dexdogs © 2026 | Built for the 30-Day Climate Tech Challenge")
+
 
