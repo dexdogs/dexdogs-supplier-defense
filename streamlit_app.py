@@ -2,68 +2,97 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import time
 from datetime import datetime, timedelta
 
 st.set_page_config(page_title="dexdogs | Digital Twin", layout="wide")
-st.title("🏗️ dexdogs: Glass Factory Digital Twin")
-st.caption("Defending Tier 1 Supplier Contracts with High-Fidelity Data")
 
-# --- SIDEBAR: CONTROL THE REALITY ---
+# --- CUSTOM CSS FOR THE 'APPLE' LOOK ---
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    .stMetric { border: 1px solid #333; padding: 10px; border-radius: 10px; }
+    </style>
+    """, unsafe_base_with_logic=True)
+
+st.title("🏗️ dexdogs: Glass Factory Digital Twin")
+st.caption("Verifying the 'Carbon Pulse' for Apple Supplier Compliance (2026)")
+
+# --- SOURCES & COMPLIANCE LINKS ---
+with st.expander("📚 Official Compliance Sources"):
+    st.write("Apple requires facility-level data. Reference these for your audit:")
+    st.markdown("- [Apple 2025 Environmental Progress Report](https://www.apple.com/environment/pdf/Apple_Environmental_Progress_Report_2025.pdf)")
+    st.markdown("- [Apple Supplier Code of Conduct v5.0](https://www.apple.com/euro/supplier-responsibility/k/generic/pdf/Apple-Supplier-Code-of-Conduct-and-Supplier-Responsibility-Standards.pdf)")
+    st.markdown("- [Supplier Clean Energy Program Update](https://www.apple.com/environment/pdf/Apple_Supplier_Clean_Energy_Program_Update_2022.pdf)")
+
+# --- SIDEBAR: SIMULATION CONTROLS ---
 with st.sidebar:
     st.header("Factory Controls")
-    furnace_temp = st.slider("Furnace Temp (°C)", 1400, 1700, 1550)
-    leak_rate = st.slider("Fuel Line Inefficiency (%)", 0, 20, 5)
+    furnace_temp = st.slider("Furnace Temp (°C)", 1400, 1750, 1550)
+    waste_leak = st.slider("Fuel Line Inefficiency (%)", 0, 25, 5)
+    
     st.divider()
-    if st.button("🔄 Reset Simulation"):
-        st.rerun()
+    sim_start = st.button("🚀 Start 5-Min Simulation", type="primary")
 
-# --- 1. THE VISUAL DES MODEL (Gantt Chart) ---
-st.subheader("1. Discrete Event Model: Batch Flow")
-# We simulate 3 typical processes: Melting, Forming, Annealing
-tasks = []
-start_time = datetime(2026, 2, 6, 8, 0)
-for i in range(1, 6): # 5 Batches
-    m_start = start_time + timedelta(minutes=(i-1)*30)
-    tasks.append(dict(Batch=f"Batch {i}", Start=m_start, Finish=m_start + timedelta(minutes=25), Process="1. Melting (1550°C)"))
-    tasks.append(dict(Batch=f"Batch {i}", Start=m_start + timedelta(minutes=26), Finish=m_start + timedelta(minutes=45), Process="2. Fusion Draw (Forming)"))
-    tasks.append(dict(Batch=f"Batch {i}", Start=m_start + timedelta(minutes=46), Finish=m_start + timedelta(minutes=70), Process="3. Annealing (Cooling)"))
+# --- THE SIMULATION ENGINE ---
+if sim_start:
+    t_end = time.time() + 60 * 5 # 5 Minutes
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    # Placeholders for live-updating charts
+    m1, m2 = st.columns(2)
+    with m1: pulse_chart = st.empty()
+    with m2: gantt_chart = st.empty()
+    log_table = st.empty()
 
-df_tasks = pd.DataFrame(tasks)
-fig_gantt = px.timeline(df_tasks, x_start="Start", x_end="Finish", y="Process", color="Batch", title="Glass Batch Sequencing")
-fig_gantt.update_yaxes(autorange="reversed")
-st.plotly_chart(fig_gantt, use_container_width=True)
+    # Data lists to store simulation history
+    history = []
+    
+    while time.time() < t_end:
+        rem_time = int(t_end - time.time())
+        mins, secs = divmod(rem_time, 60)
+        
+        # 1. Update Progress & Timer
+        status_text.metric("Simulation Time Remaining", f"{mins:02d}:{secs:02d}")
+        progress_bar.progress(1 - (rem_time / 300))
+        
+        # 2. Generate Real-Time Telemetry
+        current_load = (furnace_temp / 20) + (waste_leak * 1.8) + np.random.uniform(-2, 2)
+        history.append({"Time": datetime.now(), "Load_kW": current_load})
+        df_history = pd.DataFrame(history)
+        
+        # 3. Visual 1: The Carbon Pulse (Line Chart)
+        fig_pulse = px.line(df_history.tail(30), x='Time', y='Load_kW', 
+                           title="Real-Time Carbon Pulse (kW Load)",
+                           color_discrete_sequence=['#00d4ff'])
+        fig_pulse.update_layout(template="plotly_dark", height=300)
+        pulse_chart.plotly_chart(fig_pulse, use_container_width=True)
+        
+        # 4. Visual 2: The Sequence (Gantt Chart)
+        # Showing batches moving through: Melting -> Forming -> Annealing
+        tasks = []
+        now = datetime.now()
+        for i in range(1, 4):
+            tasks.append(dict(Batch=f"Batch {i}", Start=now - timedelta(minutes=i*2), Finish=now + timedelta(minutes=5-i), Process="Melting"))
+            tasks.append(dict(Batch=f"Batch {i}", Start=now + timedelta(minutes=6), Finish=now + timedelta(minutes=10), Process="Forming"))
+        
+        df_tasks = pd.DataFrame(tasks)
+        fig_gantt = px.timeline(df_tasks, x_start="Start", x_end="Finish", y="Process", color="Batch")
+        fig_gantt.update_yaxes(autorange="reversed")
+        fig_gantt.update_layout(template="plotly_dark", height=300)
+        gantt_chart.plotly_chart(fig_gantt, use_container_width=True)
 
-# --- 2. RAW TELEMETRY & WASTE LOG ---
-st.subheader("2. Live Telemetry Data (Activity Feed)")
-# Generating fake 'sensor' data based on your sliders
-telemetry = []
-for i in range(10):
-    noise = np.random.uniform(-1, 1)
-    power = (furnace_temp / 20) + leak_rate + noise
-    waste = "Leak Detected" if power > 80 else "Normal"
-    telemetry.append({"Timestamp": datetime.now() - timedelta(seconds=i*10), "Sensor_ID": "Furnace_01", "KW_Load": f"{power:.2f}", "Status": waste})
-
-col_a, col_b = st.columns([2, 3])
-with col_a:
-    st.dataframe(telemetry, use_container_width=True)
-with col_b:
-    # --- 4. EMISSIONS SPIKE VISUAL ---
-    hours = np.linspace(0, 10, 100)
-    # The spike is caused by the 'leak_rate' slider
-    base_load = np.sin(hours) * 5 + 20
-    spike = base_load + (leak_rate * 2) 
-    df_pulse = pd.DataFrame({'Time': hours, 'Carbon_Pulse': spike})
-    st.plotly_chart(px.line(df_pulse, x='Time', y='Carbon_Pulse', title="Real-Time Carbon Spike (Fuel Inefficiency)"), use_container_width=True)
-
-# --- 3. MATH vs. REALITY ---
-st.divider()
-st.subheader("3. The 'Gap': Theoretical vs. Actual")
-theoretical = (furnace_temp * 0.05) # Stoichiometry math
-actual = theoretical + (leak_rate * 1.5) # The reality of waste
-
-m1, m2, m3 = st.columns(3)
-m1.metric("Theoretical (Stoichiometry)", f"{theoretical:.2f} kg/t", help="Based on chemical reactions")
-m2.metric("Actual (Sensor Data)", f"{actual:.2f} kg/t", delta=f"{actual-theoretical:.2f} WASTE", delta_color="inverse")
-m3.metric("Apple Compliance Score", f"{100-leak_rate}%", delta="-4%" if leak_rate > 10 else "Optimal")
-
-st.info("💡 **Demo Strategy**: Show how 'Theoretical Math' is a lie. Only dexdogs captures the **Waste Gap** through real-time telemetry.")
+        # 5. Reality Check Metrics
+        theoretical = (furnace_temp * 0.04)
+        actual = theoretical + (waste_leak * 1.2)
+        
+        # Show Metrics at the bottom
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Theory (Stoichiometry)", f"{theoretical:.2f} kg/t")
+        c2.metric("Actual (Digital Twin)", f"{actual:.2f} kg/t", delta=f"{actual-theoretical:.2f} Waste")
+        c3.metric("Apple Compliance", f"{100-waste_leak}%", delta="-5%" if waste_leak > 10 else "Optimal")
+        
+        time.sleep(2) # Update every 2 seconds for a smooth 'Live' feel
+else:
+    st.info("Click 'Start Simulation' in the sidebar to begin the 5-minute Digital Twin run.")
